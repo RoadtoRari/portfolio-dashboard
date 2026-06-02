@@ -1,31 +1,254 @@
-PORTFOLIO DASHBOARD
-Loading prices...
-↻ Refresh
-TOTAL VALUE
---
---
-COST BASIS
---
-amount invested
-CASH
-$1,777
---
-TOTAL RETURN
---
-since avg entry
-ALLOCATION
-
-Cash buffer
---
-
-POSITIONS
-TICKER
-SHARES
-AVG COST
-CURRENT
-VALUE
-P&L
-SIGNAL
-
-PORTFOLIO HEALTH
-Prices auto-refresh every 3 minutes
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a0a;color:#e8e8e8;min-height:100vh;padding:28px 32px}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.header h1{font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#555;font-weight:500}
+.header-right{display:flex;align-items:center;gap:12px}
+#lastUpdate{font-size:12px;color:#444}
+#refreshBtn{font-size:12px;background:#161616;border:1px solid #2a2a2a;color:#888;padding:6px 14px;border-radius:8px;cursor:pointer}
+#refreshBtn:hover{background:#1e1e1e;color:#e8e8e8}
+.top-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.metric{background:#111111;border:1px solid #1e1e1e;border-radius:12px;padding:16px 18px}
+.metric-label{font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:#444444;margin-bottom:8px;font-weight:500}
+.metric-value{font-size:22px;font-weight:500;color:#e8e8e8;line-height:1}
+.metric-sub{font-size:12px;margin-top:5px;color:#555555}
+.g{color:#1D9E75}.r{color:#E24B4A}.a{color:#BA7517}.b{color:#378ADD}
+.main-grid{display:grid;grid-template-columns:210px 1fr;gap:12px;margin-bottom:12px}
+.card{background:#111111;border:1px solid #1e1e1e;border-radius:14px;padding:20px}
+.card-title{font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:#444444;margin-bottom:16px;font-weight:500}
+.donut-wrap{display:flex;justify-content:center;margin-bottom:16px}
+.legend{display:flex;flex-direction:column;gap:10px}
+.legend-row{display:flex;align-items:center;justify-content:space-between}
+.legend-left{display:flex;align-items:center;gap:8px}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.legend-name{font-size:13px;color:#888888}
+.legend-pct{font-size:13px;font-weight:500;color:#e8e8e8}
+.legend-val{font-size:11px;color:#444444;margin-right:10px}
+.cash-bar-wrap{margin-top:16px;padding-top:16px;border-top:1px solid #1a1a1a}
+.cash-bar-label{display:flex;justify-content:space-between;font-size:11px;color:#444444;margin-bottom:7px}
+.bar-track{width:100%;height:3px;background:#1a1a1a;border-radius:2px;overflow:hidden}
+.bar-fill{height:100%;border-radius:2px;background:#378ADD;transition:width 0.6s ease}
+table{width:100%;border-collapse:collapse}
+th{font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#444444;text-align:left;padding:0 0 12px;font-weight:400;border-bottom:1px solid #1a1a1a}
+th:not(:first-child){text-align:right}
+td{padding:13px 0;font-size:13px;color:#e8e8e8;border-bottom:1px solid #161616;vertical-align:middle}
+td:not(:first-child){text-align:right}
+tr:last-child td{border-bottom:none}
+.badge{display:inline-block;font-size:11px;font-weight:500;padding:3px 9px;border-radius:5px;background:#161616;color:#e8e8e8;letter-spacing:0.04em;border:1px solid #252525}
+.sig{display:inline-block;font-size:10px;font-weight:500;padding:2px 8px;border-radius:4px;letter-spacing:0.04em}
+.sig-hold{background:#1a1200;color:#BA7517;border:1px solid #2a1e00}
+.sig-buy{background:#001510;color:#1D9E75;border:1px solid #002018}
+.sig-watch{background:#00101e;color:#378ADD;border:1px solid #001830}
+.sig-sell{background:#1a0000;color:#E24B4A;border:1px solid #280000}
+.reco-card{background:#111111;border:1px solid #1e1e1e;border-radius:14px;padding:20px}
+.reco-list{display:flex;flex-direction:column;gap:8px}
+.reco-item{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border-radius:9px;background:#0d0d0d;border:1px solid #1a1a1a}
+.reco-icon{font-size:14px;margin-top:1px;flex-shrink:0}
+.reco-text{font-size:13px;color:#e8e8e8;line-height:1.5;font-weight:500}
+.reco-sub{color:#555555;font-size:12px;font-weight:400;margin-top:2px}
+.footer-note{font-size:11px;color:#333333;margin-top:12px;text-align:center}
+@media(max-width:680px){.top-grid{grid-template-columns:repeat(2,1fr)}.main-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+ 
+<div class="header">
+  <h1>Portfolio Dashboard</h1>
+  <div class="header-right">
+    <span id="lastUpdate">Loading prices...</span>
+    <button id="refreshBtn" onclick="fetchPrices()">&#8635; Refresh</button>
+  </div>
+</div>
+ 
+<div class="top-grid">
+  <div class="metric">
+    <div class="metric-label">Total Value</div>
+    <div class="metric-value" id="totalVal">--</div>
+    <div class="metric-sub" id="totalPL">--</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Cost Basis</div>
+    <div class="metric-value" id="investedVal">--</div>
+    <div class="metric-sub">amount invested</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Cash</div>
+    <div class="metric-value">$1,777</div>
+    <div class="metric-sub" id="cashPct">--</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Total Return</div>
+    <div class="metric-value" id="returnPct">--</div>
+    <div class="metric-sub">since avg entry</div>
+  </div>
+</div>
+ 
+<div class="main-grid">
+  <div class="card">
+    <div class="card-title">Allocation</div>
+    <div class="donut-wrap">
+      <canvas id="donut" width="140" height="140"></canvas>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="cash-bar-wrap">
+      <div class="cash-bar-label"><span>Cash buffer</span><span id="cashBarPct">--</span></div>
+      <div class="bar-track"><div class="bar-fill" id="cashBarFill" style="width:0%"></div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Positions</div>
+    <table>
+      <thead><tr>
+        <th>Ticker</th><th>Shares</th><th>Avg Cost</th><th>Current</th><th>Value</th><th>P&amp;L</th><th>Signal</th>
+      </tr></thead>
+      <tbody id="posBody"></tbody>
+    </table>
+  </div>
+</div>
+ 
+<div class="reco-card">
+  <div class="card-title">Portfolio Health</div>
+  <div class="reco-list" id="recoList"></div>
+</div>
+ 
+<div class="footer-note" id="footerNote">Prices auto-refresh every 3 minutes</div>
+ 
+<script>
+var POS=[
+  {ticker:'NVDA',shares:954, avgCost:124.1055,color:'#1D9E75',signal:'hold'},
+  {ticker:'AVGO',shares:5,   avgCost:231.0680,color:'#378ADD',signal:'buy'},
+  {ticker:'PLTR',shares:3,   avgCost:186.7000,color:'#7F77DD',signal:'watch'}
+];
+var CASH=1777.27;
+var prices={NVDA:226.95,AVGO:486.95,PLTR:155.35};
+var donutChart=null;
+ 
+function fmt(n){return '$'+Math.round(n).toLocaleString('en-US');}
+function fmtD(n){return '$'+parseFloat(n).toFixed(2);}
+function fmtP(n){return (n>=0?'+':'')+n.toFixed(2)+'%';}
+ 
+function fetchPrices(){
+  var btn=document.getElementById('refreshBtn');
+  btn.textContent='Refreshing...';
+  btn.disabled=true;
+  var tickers=POS.map(function(p){return p.ticker;});
+  var done=0;
+  var ok=0;
+  tickers.forEach(function(ticker){
+    fetch('https://query1.finance.yahoo.com/v8/finance/chart/'+ticker+'?interval=1m&range=1d')
+      .then(function(r){return r.json();})
+      .then(function(d){
+        var v=d&&d.chart&&d.chart.result&&d.chart.result[0]&&d.chart.result[0].meta&&d.chart.result[0].meta.regularMarketPrice;
+        if(v){prices[ticker]=v;ok++;}
+        done++;
+        if(done===tickers.length){afterFetch(ok);}
+      })
+      .catch(function(){
+        done++;
+        if(done===tickers.length){afterFetch(ok);}
+      });
+  });
+}
+ 
+function afterFetch(ok){
+  var btn=document.getElementById('refreshBtn');
+  btn.textContent='&#8635; Refresh';
+  btn.disabled=false;
+  var now=new Date();
+  document.getElementById('lastUpdate').textContent='Updated '+now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('footerNote').textContent=ok>0?'Live prices · auto-refresh every 3 min':'Last known prices · markets may be closed';
+  render();
+}
+ 
+function render(){
+  var comp=POS.map(function(p){
+    var price=prices[p.ticker]||p.avgCost;
+    var value=p.shares*price;
+    var cost=p.shares*p.avgCost;
+    return {ticker:p.ticker,shares:p.shares,avgCost:p.avgCost,color:p.color,signal:p.signal,price:price,value:value,cost:cost,pl:value-cost,plPct:((price-p.avgCost)/p.avgCost)*100};
+  });
+ 
+  var totInv=comp.reduce(function(s,p){return s+p.cost;},0);
+  var totVal=comp.reduce(function(s,p){return s+p.value;},0)+CASH;
+  var totPL=totVal-CASH-totInv;
+  var totRet=(totPL/totInv)*100;
+  var cashPct=(CASH/totVal)*100;
+ 
+  document.getElementById('totalVal').textContent=fmt(totVal);
+  document.getElementById('totalPL').innerHTML='<span class="'+(totPL>=0?'g':'r')+'">'+(totPL>=0?'+':'')+fmt(totPL)+' unrealized</span>';
+  document.getElementById('investedVal').textContent=fmt(totInv);
+  document.getElementById('returnPct').innerHTML='<span class="'+(totRet>=0?'g':'r')+'">'+fmtP(totRet)+'</span>';
+  document.getElementById('cashPct').textContent=cashPct.toFixed(1)+'% of portfolio';
+  document.getElementById('cashBarPct').textContent=cashPct.toFixed(1)+'%';
+  document.getElementById('cashBarFill').style.width=Math.min(cashPct,100)+'%';
+ 
+  var tbody=document.getElementById('posBody');
+  tbody.innerHTML='';
+  comp.forEach(function(p){
+    var sc={hold:'sig-hold',buy:'sig-buy',watch:'sig-watch',sell:'sig-sell'}[p.signal]||'sig-watch';
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td><span class="badge">'+p.ticker+'</span></td><td>'+p.shares.toLocaleString()+'</td><td>'+fmtD(p.avgCost)+'</td><td><strong>'+fmtD(p.price)+'</strong></td><td>'+fmt(p.value)+'</td><td class="'+(p.pl>=0?'g':'r')+'">'+(p.pl>=0?'+':'')+fmt(p.pl)+'<br><span style="font-size:11px;opacity:0.75">'+fmtP(p.plPct)+'</span></td><td><span class="sig '+sc+'">'+p.signal+'</span></td>';
+    tbody.appendChild(tr);
+  });
+ 
+  var items=comp.map(function(p){return {name:p.ticker,value:p.value,color:p.color};});
+  items.push({name:'Cash',value:CASH,color:'#333333'});
+ 
+  var leg=document.getElementById('legend');
+  leg.innerHTML='';
+  items.forEach(function(item){
+    var pct=((item.value/totVal)*100).toFixed(1);
+    var d=document.createElement('div');
+    d.className='legend-row';
+    d.innerHTML='<div class="legend-left"><div class="dot" style="background:'+item.color+'"></div><span class="legend-name">'+item.name+'</span></div><div style="display:flex;align-items:center"><span class="legend-val">'+fmt(item.value)+'</span><span class="legend-pct">'+pct+'%</span></div>';
+    leg.appendChild(d);
+  });
+ 
+  var dData=items.map(function(i){return parseFloat((i.value/totVal*100).toFixed(1));});
+  var dColors=items.map(function(i){return i.color;});
+  var dLabels=items.map(function(i){return i.name;});
+ 
+  if(donutChart){
+    donutChart.data.datasets[0].data=dData;
+    donutChart.data.datasets[0].backgroundColor=dColors;
+    donutChart.update();
+  } else {
+    donutChart=new Chart(document.getElementById('donut'),{
+      type:'doughnut',
+      data:{labels:dLabels,datasets:[{data:dData,backgroundColor:dColors,borderWidth:2,borderColor:'#111111',hoverOffset:3}]},
+      options:{responsive:false,cutout:'72%',plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return ctx.label+': '+ctx.parsed.toFixed(1)+'%';}}}}}
+    });
+  }
+ 
+  var nvdaPct=(comp[0].value/totVal)*100;
+  var recos=[];
+  if(nvdaPct>80) recos.push({icon:'&#9888;&#65039;',txt:'NVDA is '+nvdaPct.toFixed(0)+'% of your portfolio',sub:'Dangerously concentrated. Trim to your ~$65k core hold and free up cash.'});
+  if(cashPct<10) recos.push({icon:'&#128308;',txt:'Cash reserve critically low',sub:'Only '+cashPct.toFixed(1)+'% cash. Target 15-20% dry powder for swing entries.'});
+  if(comp[2].plPct<0) recos.push({icon:'&#128201;',txt:'PLTR down '+fmtP(comp[2].plPct)+' from your entry',sub:'Below cost basis. Re-evaluate thesis or set a hard stop loss.'});
+  recos.push({icon:'&#128197;',txt:'AVGO earnings Jun 3 after close',sub:'AI revenue expected +100% YoY. High-impact event - size your position carefully.'});
+  recos.push({icon:'&#9989;',txt:'NVDA up '+fmtP(comp[0].plPct)+' from your avg entry',sub:'Strong unrealized gain. Define your sell target and trim trigger before acting.'});
+ 
+  var rl=document.getElementById('recoList');
+  rl.innerHTML='';
+  recos.forEach(function(r){
+    var d=document.createElement('div');
+    d.className='reco-item';
+    d.innerHTML='<span class="reco-icon">'+r.icon+'</span><div><div class="reco-text">'+r.txt+'</div><div class="reco-sub">'+r.sub+'</div></div>';
+    rl.appendChild(d);
+  });
+}
+ 
+render();
+fetchPrices();
+setInterval(fetchPrices,180000);
+</script>
+</body>
+</html>
+ 
